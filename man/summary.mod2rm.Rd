@@ -18,8 +18,10 @@ Prints summary of the object, then returns NULL
 Prints a summary of a list object of class "mod2rm"
 }
 \examples{
-df = data.frame(out1 = c(2,4,5,6,6), out2 = c(7,4,5,1,1), w = c(9,4,4,2,3))
-res = mod2rm(df, out1, out2, w)
-res = mod2rm(df, out1, out2, w, c(2,5))
+df = data.frame(out1 = c(2,4,5,6,6), out2 = c(7,4,5,1,1), w1 = c(9,4,4,2,3), w2 = c(7,4,1,1,2))
+res = mod2rm(df, out1, out2, w1)
+res = mod2rm(df, out1, out2, w1, MOD1val = c(2,5))
+res = mod2rm(df, out1, out2, w1, w2, method = 2, standardize = TRUE)
+summary.mod2rm(res)
 summary.mod2rm(res)
 }

@@ -3,6 +3,7 @@
 S3method(summary,mod2rm)
 export(mod2rm)
 export(summary.mod2rm)
+importFrom(methods,is)
 importFrom(stats,confint)
 importFrom(stats,lm)
 importFrom(stats,na.omit)

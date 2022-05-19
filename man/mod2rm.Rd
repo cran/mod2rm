@@ -4,7 +4,19 @@
 \alias{mod2rm}
 \title{Moderation Analysis for Two-Instance Repeated Measures Designs}
 \usage{
-mod2rm(data, Y1, Y2, MOD1, MOD1val = NULL, method = 1)
+mod2rm(
+  data,
+  Y1,
+  Y2,
+  MOD1,
+  MOD2 = NULL,
+  MOD3 = NULL,
+  MOD1val = NULL,
+  MOD2val = NULL,
+  MOD3val = NULL,
+  method = 1,
+  standardize = FALSE
+)
 }
 \arguments{
 \item{data}{A data frame}
@@ -13,34 +25,42 @@ mod2rm(data, Y1, Y2, MOD1, MOD1val = NULL, method = 1)
 
 \item{Y2}{Name of the second outcome variable}
 
-\item{MOD1}{Name of the moderator variable}
+\item{MOD1}{Name of moderator1 variable}
 
-\item{MOD1val}{A vector containing two values of the moderator at which to test for conditional effects (optional).}
+\item{MOD2}{Name of moderator2 variable (optional)}
 
-\item{method}{Method for dealing with two or more moderators (1 = addition, 2 = multiplication) (currently not supported)}
+\item{MOD3}{Name of moderator3 variable (optional)}
+
+\item{MOD1val}{A vector containing two values of moderator1 at which to test for conditional effects (even when variables have been standardized!)(optional)}
+
+\item{MOD2val}{A vector containing two values of moderator2 at which to test for conditional effects (even when variables have been standardized!)(optional)}
+
+\item{MOD3val}{A vector containing two values of moderator3 at which to test for conditional effects (even when variables have been standardized!)(optional)}
+
+\item{method}{Method for dealing with two or more moderators (1 = additive, 2 = multiplicative) (default: additive)}
+
+\item{standardize}{boolean variable indicating whether all variables should be standardized prior to the analyses (default: FALSE)}
 }
 \value{
 \item{total}{A list of class "mod2rm" containing:}
-  \item{num_mods}{Numeric variable indicating the number of moderators (currently only 1 moderator is supported)}
-  \item{mod_binary}{Boolean value indicating whether the moderator is binary or not}
-  \item{name_y1}{String variable providing the name of first dependent variable (y1)}
-  \item{name_y2}{String variable providing the name of second dependent variable (y2)}
-  \item{name_mod}{String variable providing the name of moderator}
+  \item{info}{A named number vector containing values for the number of moderators in the model (num_mods), the number of binary moderators (num_binary_mods), the sample size (sample_size), and the method of moderation (method; 1 = additive, 2 = multiplicative)}
+  \item{var_names}{A named character vector containing the name of the original dataframe (dataframe), the two outcome variables (y1,y2), and up to three moderators (mod1,mod2,mod3)}
   \item{res_mod}{A list including the results of a simple regression, regressing the difference between y1 and y2 on the moderator}
-  \item{simp_eff1}{A list including the results of a simple regression, regressing the y1 on the moderator}
-  \item{simp_eff2}{A list including the results of a simple regression, regressing the y2 on the moderator}
-  \item{cond_eff}{A list including the results of an analysis of conditional effects at different levels of the moderator}
-  \item{y1y2_diff}{A list including the results of a repeated measures t-test for y1 and y2}
-  \item{sample_size}{Numeric variable indicating the number of complete cases that the analysis is based on}
+  \item{res_simple_y1}{A list including the results of a simple regression, regressing the y1 on the moderator}
+  \item{res_simple_y2}{A list including the results of a simple regression, regressing the y2 on the moderator}
+  \item{res_cond_eff}{A list including the results of an analysis of conditional effects at different levels of the moderator(s)}
+  \item{res_y1y2_diff}{A list including the results of a repeated measures t-test for y1 and y2}
 }
 \description{
-Moderation analysis for two-instance repeated measures designs, including analyses of simple slopes and conditional effects at values of the moderator.\cr\cr
-Currently supports a single continuous or binary moderator. For continuous moderators, two values for conditional effects tests can be specified manually.\cr\cr
-Method and design based on: Montoya, A. K. (2018). Moderation analysis in two-instance repeated measures designs: Probing methods and multiple moderator models. \emph{Behavior Research Methods, 51(1)}, 61-82.\cr\cr
+Multiple moderation analysis for two-instance repeated measures designs, including analyses of simple slopes and conditional effects at values of the moderator(s).\cr\cr
+Currently supports both single- and multi-moderator models, with up to three simultaneous moderators (continuous and/or binary). Multi-moderator models support both additive (method = 1) and multiplicative (method = 2) moderation.\cr\cr
+Moderator values at which to test for conditional effects are determined automatically (at -1, 0, and +1 SD of the mean if the moderator is countinuous, and at both values of the moderator if it is binary), but two test values can also be set manually for each moderator.\cr\cr
+Method and output based on: Montoya, A. K. (2018). Moderation analysis in two-instance repeated measures designs: Probing methods and multiple moderator models. \emph{Behavior Research Methods, 51(1)}, 61-82.\cr\cr
 }
 \examples{
-df = data.frame(out1 = c(2,4,5,6,6), out2 = c(7,4,5,1,1), w = c(9,4,4,2,3))
-res = mod2rm(df, out1, out2, w)
-res = mod2rm(df, out1, out2, w, c(2,5))
+df = data.frame(out1 = c(2,4,5,6,6), out2 = c(7,4,5,1,1), w1 = c(9,4,4,2,3), w2 = c(7,4,1,1,2))
+res = mod2rm(df, out1, out2, w1)
+res = mod2rm(df, out1, out2, w1, MOD1val = c(2,5))
+res = mod2rm(df, out1, out2, w1, w2, method = 2, standardize = TRUE)
 summary.mod2rm(res)
 }
