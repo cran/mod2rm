@@ -2,7 +2,8 @@
 #'
 #' Multiple moderation analysis for two-instance repeated measures designs, including analyses of simple slopes and conditional effects at values of the moderator(s).\cr\cr
 #' Currently supports both single- and multi-moderator models, with up to three simultaneous moderators (continuous and/or binary). Multi-moderator models support both additive (method = 1) and multiplicative (method = 2) moderation.\cr\cr
-#' Moderator values at which to test for conditional effects are determined automatically (at -1, 0, and +1 SD of the mean if the moderator is countinuous, and at both values of the moderator if it is binary), but two test values can also be set manually for each moderator.\cr\cr
+#' Also supports the Johnson-Neyman procedure for determining regions of significance in single moderator models (jn = T). Plots of the JN region can be obtained from the summary function (plotjn = T).\cr\cr
+#' Moderator values at which to test for conditional effects are determined automatically (at -1, 0, and +1 SD of the mean if the moderator is countinuous, and at both values of the moderator if it is binary), but any number of test values can also be set manually for each moderator.\cr\cr
 #' Method and output based on: Montoya, A. K. (2018). Moderation analysis in two-instance repeated measures designs: Probing methods and multiple moderator models. \emph{Behavior Research Methods, 51(1)}, 61-82.\cr\cr
 #' @param data A data frame
 #' @param Y1 Name of the first outcome variable
@@ -10,68 +11,82 @@
 #' @param MOD1 Name of moderator1 variable
 #' @param MOD2 Name of moderator2 variable (optional)
 #' @param MOD3 Name of moderator3 variable (optional)
-#' @param MOD1val A vector containing two values of moderator1 at which to test for conditional effects (even when variables have been standardized!)(optional)
-#' @param MOD2val A vector containing two values of moderator2 at which to test for conditional effects (even when variables have been standardized!)(optional)
-#' @param MOD3val A vector containing two values of moderator3 at which to test for conditional effects (even when variables have been standardized!)(optional)
+#' @param MOD1val A vector containing values of moderator1 at which to test for conditional effects (even when variables have been standardized!)(optional)
+#' @param MOD2val A vector containing values of moderator2 at which to test for conditional effects (even when variables have been standardized!)(optional)
+#' @param MOD3val A vector containing values of moderator3 at which to test for conditional effects (even when variables have been standardized!)(optional)
 #' @param method Method for dealing with two or more moderators (1 = additive, 2 = multiplicative) (default: additive)
-#' @param standardize boolean variable indicating whether all variables should be standardized prior to the analyses (default: FALSE)
+#' @param standardize boolean variable indicating whether all predictor variables (moderators) should be standardized prior to the analyses (default: FALSE)
+#' @param jn boolean variable indicating whether the Johnson-Neyman procedure should be calculated (only available for single moderator models)
 #' @return 
 #'   \item{total}{A list of class "mod2rm" containing:}
-#'   \item{info}{A named number vector containing values for the number of moderators in the model (num_mods), the number of binary moderators (num_binary_mods), the sample size (sample_size), and the method of moderation (method; 1 = additive, 2 = multiplicative)}
+#'   \item{info}{A named number vector containing values for the number of moderators in the model (num_mods), the number of binary moderators (num_binary_mods), the sample size (sample_size), the method of moderation (method; 1 = additive, 2 = multiplicative), and whether the Johnson-Neyman procedure was run (jn)}
 #'   \item{var_names}{A named character vector containing the name of the original dataframe (dataframe), the two outcome variables (y1,y2), and up to three moderators (mod1,mod2,mod3)}
 #'   \item{res_mod}{A list including the results of a simple regression, regressing the difference between y1 and y2 on the moderator}
 #'   \item{res_simple_y1}{A list including the results of a simple regression, regressing the y1 on the moderator}
 #'   \item{res_simple_y2}{A list including the results of a simple regression, regressing the y2 on the moderator}
 #'   \item{res_cond_eff}{A list including the results of an analysis of conditional effects at different levels of the moderator(s)}
 #'   \item{res_y1y2_diff}{A list including the results of a repeated measures t-test for y1 and y2}
-#' 
+#'   \item{res_jn_area}{A list containing information on the Johnson-Neyman procedure, incluing the number of significance points identified within the data range (num_jn), the moderator values of these points, as well as the proportion of the sample scoring higher than these values (jn_values), and information on whether the JN region is significant or non-significent (center_significant; used for plotting.)}
+#'   \item{res_jn_cond_eff}{A list containing additional conditonal effects at levels of the moderator around the JN region. Values span the entir data range in 20 steps.}
 #' @examples 
-#' df = data.frame(out1 = c(2,4,5,6,6), out2 = c(7,4,5,1,1), w1 = c(9,4,4,2,3), w2 = c(7,4,1,1,2))
-#' res = mod2rm(df, out1, out2, w1)
-#' res = mod2rm(df, out1, out2, w1, MOD1val = c(2,5))
-#' res = mod2rm(df, out1, out2, w1, w2, method = 2, standardize = TRUE)
-#' summary.mod2rm(res)
+#' 
+#' # Generate a dataset with a Johnson-Neyman (non-)significance region within the response range:
+#' 
+#' repeat{
+#'   df = data.frame(out1 = runif(n = 100, min = 1, max = 9), 
+#'                   out2 = runif(n = 100, min = 1, max = 9), 
+#'                   w1 = runif(n = 100, min = 1, max = 9),  
+#'                   w2 = runif(n = 100, min = 1, max = 9),
+#'                   w3 = runif(n = 100, min = 1, max = 9))
+#'   res = mod2rm(df, out1, out2, w1, jn = TRUE)
+#'   if(res$res_jn_area["num_jn"] == 2 & res$res_jn_area["center_significant"] == FALSE)
+#'     break
+#' }
+#' 
+#' # Show summary including plot
+#' summary.mod2rm(res, plotjn = TRUE, plotstyle = "simple")
+#' 
+#' # Multiple regression (3 moderators, additive)
+#' res1 = mod2rm(df, out1, out2, w1, w2, w3, method = 1)
+#' summary.mod2rm(res1)
+#' 
+#' # Multiple regression (2 moderators, multiplicative, manually defined conditional effects)
+#' res2 = mod2rm(df, out1, out2, w1, w2, MOD1val = c(2,3,4), MOD2val = c(4,5), method = 2)
+#' summary.mod2rm(res2)
+#' 
+#' 
 #' @export
 #' @importFrom stats confint lm na.omit pt qt sd t.test vcov
 #' @importFrom utils capture.output
 
-# version 0.1.0
 
-# CHANGES
-# no rounding in main function
-# conditional effects results returned as matrix
-# up to three moderators
-# moderators can be additive and multiplicative (method 1 = additive, method 2 = multiplicative)
-# variable names in main function reorganized
-# now uses "as.numeric" on variables to make sure they are not factorized
-# added 95% confidence intervals to regression outputs
 
-mod2rm <- function (data, Y1, Y2, MOD1, MOD2 = NULL, MOD3 = NULL, MOD1val = NULL, MOD2val = NULL, MOD3val = NULL, method = 1, standardize = FALSE) 
+mod2rm <- function (data, Y1, Y2, MOD1, MOD2 = NULL, MOD3 = NULL, MOD1val = NULL, MOD2val = NULL, MOD3val = NULL, method = 1, standardize = FALSE, jn = FALSE) 
 {
   
   # test arguments: check if manually set values are of length 2, check if moderators are specified in order (i.e., no skipping mod2)
   
-  if((length(MOD1val) != 2 & !missing(MOD1val)) | (length(MOD2val) != 2 & !missing(MOD2val)) | (length(MOD3val) != 2 & !missing(MOD3val))) 
-    stop('vectors of manually set values for conditional effects must have a length of 2')
+   if((length(MOD1val) < 2 & !missing(MOD1val)) | (length(MOD2val) < 2 & !missing(MOD2val)) | (length(MOD3val) < 2 & !missing(MOD3val))) 
+     stop('Vectors of manually set values for conditional effects must have a length of at least 2')
   if(!missing(MOD3) & missing(MOD2)) 
     stop('You cannot specify moderator 3 (MOD3) without also specifiying moderator 2 (MOD2) ')
   
   # determine the total number of moderators.  
-  if(!missing(MOD3)) 
-    num_mods = 3
-  if(!missing(MOD2) & missing(MOD3)) 
-    num_mods = 2  
-  if(missing(MOD2) & missing(MOD3)) 
-    num_mods = 1
+  
+  num_mods = sum(c(!missing(MOD1), !missing(MOD2), !missing(MOD3)))
+  
+  # make sure JN is only performed on one moderator
+  if (num_mods > 1 & jn == TRUE) 
+    stop('Johnson-Neyman procedure is only supported for one moderator.')
   
   # testing if (each) moderator is binary. Give error if specific values are assigned to any binary moderator
   
   m1_bin = ifelse((length(unique(na.omit(eval(substitute(MOD1), data)))) < 3),TRUE, FALSE)  # detect if moderator 1 is dichotomous or not
-  m2_bin = ifelse((length(unique(na.omit(eval(substitute(MOD2), data)))) < 3),TRUE, FALSE)  # detect if moderator 2 is dichotomous or not
-  m3_bin = ifelse((length(unique(na.omit(eval(substitute(MOD3), data)))) < 3),TRUE, FALSE)  # detect if moderator 2 is dichotomous or not
-  
+  m2_bin = ifelse((length(unique(na.omit(eval(substitute(MOD2), data)))) < 3),TRUE, FALSE)  
+  m3_bin = ifelse((length(unique(na.omit(eval(substitute(MOD3), data)))) < 3),TRUE, FALSE)  
+   
   if((m1_bin == TRUE & !missing(MOD1val)) | (m2_bin == TRUE & !missing(MOD2val)) | (m3_bin == TRUE & !missing(MOD3val))) 
-    stop('it is not possible to manually set conditional effects values for binary moderators')
+    stop('it is not possible to manually set conditional effects values for binary (or missing) moderators')
   
   
   # create dataframe (only including non-missing cases) and critical variables for use within the function, depending on number of moderators
@@ -97,8 +112,6 @@ mod2rm <- function (data, Y1, Y2, MOD1, MOD2 = NULL, MOD3 = NULL, MOD1val = NULL
     }
   }
   if(standardize == TRUE){
-    y1 = scale(as.numeric(df$y1))
-    y2 = scale(as.numeric(df$y2))
     mod1 = scale(as.numeric(df$mod1))
     if(num_mods > 1) 
       mod2 = scale(as.numeric(df$mod2))
@@ -147,77 +160,51 @@ mod2rm <- function (data, Y1, Y2, MOD1, MOD2 = NULL, MOD3 = NULL, MOD1val = NULL
   }
 
 
-  # Conditional effects:
+  ### Conditional effects:
     
-  # Set values of moderator (-+ 1 SD or manually provided)
+ 
+  # if testpoints were manually specified
   
-  m1_low = mean(mod1) - sd(mod1)      # choose -1 SD of moderator
-  m1_high = mean(mod1) + sd(mod1)     # choose +1 SD of moderator
-  
-  if (num_mods > 1) {
-    m2_low = mean(mod2) - sd(mod2)      
-    m2_high = mean(mod2) + sd(mod2)
-  
+  if(!missing(MOD1val)) { 
+    m1_val = sort(unique(MOD1val))
   }
   
-  if (num_mods > 2) {
-    m3_low = mean(mod3) - sd(mod3)      
-    m3_high = mean(mod3) + sd(mod3)
+  if(!missing(MOD2val) & num_mods > 1) {  
+    m2_val = sort(unique(MOD2val))
+  }
+  
+  if(!missing(MOD3val) & num_mods > 2) {  
+    m3_val = sort(unique(MOD3val))
+  }
+  
+  #if nothing was manually specified, use mean +- 1 SD
+  
+  # Set values of moderator (first, -+ 1 SD)
+  
+  if(missing(MOD1val)) { 
+    m1_val = c(mean(mod1) - sd(mod1), mean(mod1), mean(mod1) + sd(mod1))
+  }
+  
+  if (num_mods > 1 & missing(MOD2val)) {
+    m2_val = c(mean(mod2) - sd(mod2), mean(mod2), mean(mod2) + sd(mod2))
+  }
+  
+  if (num_mods > 2 & missing(MOD3val)) {
+    m3_val = c(mean(mod3) - sd(mod3), mean(mod3), mean(mod3) + sd(mod3))
   }
   
   if(m1_bin == TRUE) {                  # in case of binary moderator, select both scores that exist
-    m1_low = sort(unique(mod1))[1]
-    m1_high = sort(unique(mod1))[2]
-    }
+    m1_val = c(sort(unique(mod1))[1],  sort(unique(mod1))[2])
+  }
   
   if(num_mods > 1 & m2_bin == TRUE) {                            
-    m2_low = sort(unique(mod2))[1]
-    m2_high = sort(unique(mod2))[2]
+    m2_val = c(sort(unique(mod2))[1],  sort(unique(mod2))[2])
   }
   
   if(num_mods > 2 & m3_bin == TRUE) {                            
-    m3_low = sort(unique(mod3))[1]
-    m3_high = sort(unique(mod3))[2]
+    m3_val = c(sort(unique(mod3))[1],  sort(unique(mod3))[2])
   }
   
-  
-  
-  if(length(MOD1val) == 2 & !missing(MOD1val)) {  # in case user specified two testing points
-    m1_low = min(MOD1val)
-    m1_high = max(MOD1val)
-    m1_bin = TRUE
-  }
-  
-  if(length(MOD2val) == 2 & !missing(MOD2val)) {  
-    m2_low = min(MOD2val)
-    m2_high = max(MOD2val)
-    m2_bin = TRUE
-  }
-  
-  if(length(MOD3val) == 2 & !missing(MOD3val)) {  
-    m3_low = min(MOD3val)
-    m3_high = max(MOD3val)
-    m3_bin = TRUE
-  }
-  
-  # create matrices for each moderator, containing low, (medium), high values
-  
-  m1_val = c(m1_low, m1_high)
-  if (num_mods > 1) m2_val = c(m2_low, m2_high)
-  if (num_mods > 2) m3_val = c(m3_low, m3_high)
-  
-  if(!m1_bin) {           # if moderators are not binary, calculate the mean value, and add to value matrix on position 2
-    m1_mean = mean(mod1) 
-    m1_val = append(m1_val, m1_mean, after=1)
-  }
-  if(!m2_bin & num_mods > 1) {
-    m2_mean = mean(mod2)
-    m2_val = append(m2_val, m2_mean, after=1)
-  }
-  if(!m3_bin & num_mods > 2) {
-    m3_mean = mean(mod3)
-    m3_val = append(m3_val, m3_mean, after=1)
-  }
   
   # calculate number of binary moderators (num_bin), thus far only needed for the info output
   num_bin = sum(m1_bin)
@@ -234,7 +221,7 @@ mod2rm <- function (data, Y1, Y2, MOD1, MOD2 = NULL, MOD3 = NULL, MOD1val = NULL
   
   for(i in 1:nrow(val_list)) {
     val1 = val_list[i,1]
-    if (num_mods > 1) val2 = val_list[i,2]   # define up to three test-values
+    if (num_mods > 1) val2 = val_list[i,2]   # add up to three columns for test-values (for up to 3 moderators) to the conditional effects list
     if (num_mods > 2) val3 = val_list[i,3]
 
     ## ADDITIVE MODERATION
@@ -325,14 +312,14 @@ mod2rm <- function (data, Y1, Y2, MOD1, MOD2 = NULL, MOD3 = NULL, MOD1val = NULL
         val2x3 = val2 * val3
         val1x2x3 = val1*val2*val3
         
-        m2_b = as.numeric(erg$coefficients[3])   # get unstandardized coefficient moderator
+        m2_b = as.numeric(erg$coefficients[3])   # get unstandardized coefficients of moderators
         m3_b = as.numeric(erg$coefficients[4])   
         m1m2_b = as.numeric(erg$coefficients[5])
         m1m3_b = as.numeric(erg$coefficients[6])
         m2m3_b = as.numeric(erg$coefficients[7])
         m1m2m3_b = as.numeric(erg$coefficients[8])
         
-        g = ic_b + (val1 * m1_b) + (val2 * m2_b) + (val3 * m3_b) + (val1x2 * m1m2_b) + (val1x3 * m1m3_b) + (val2x3 * m2m3_b) +  (val1x2x3 * m1m2m3_b)   # calculate gradient at -1 SD
+        g = ic_b + (val1 * m1_b) + (val2 * m2_b) + (val3 * m3_b) + (val1x2 * m1m2_b) + (val1x3 * m1m3_b) + (val2x3 * m2m3_b) +  (val1x2x3 * m1m2m3_b)   # calculate gradient val1
         
       }
 
@@ -497,10 +484,122 @@ mod2rm <- function (data, Y1, Y2, MOD1, MOD2 = NULL, MOD3 = NULL, MOD1val = NULL
   
   }
 
-  #   # calculation for multiplicatIVE moderation
- 
+  ## Johnson-Neyman Procedure for one moderator
+  
+  if(jn == TRUE) {
+    
+    # define some variables
+    
+    # calculate critical t-value
+    
+    critt = qt(p=.05/2, df=nrow(df) - length(erg$coefficients), lower.tail=FALSE)
+    
+    p3 = (ic_b^2) - (critt^2)*ic_var 
+    p2 = 2*ic_b*m1_b - 2*(critt^2)*ic_m1_covar 
+    p1 = (m1_b^2) - (critt^2 * m1_var) 
+    jn_values = data.frame(values = NA, percent = NA)
 
+    if ((p2^2 - 4*p3*p1) >= 0) {     # (only calculate JN values if applicable)
 
+      
+      # Moderator values defining the JN significance region(s) are:
+      
+      jn_val1 = (-1*p2 + sqrt(p2^2 - 4*p3*p1)) /  (2*p1) 
+      jn_val2 = (-1*p2 - sqrt(p2^2 - 4*p3*p1)) /  (2*p1) 
+      
+      # calculate percentage of sample above values 
+      
+      perc_jn_val1 = round(nrow(df[mod1 > jn_val1,]) / nrow(df) * 100, digits = 2)
+      perc_jn_val2 = round(nrow(df[mod1 > jn_val2,]) / nrow(df) * 100, digits = 2)  
+      
+      
+      # determine numer of JN significance points
+      
+      num_jn = 2
+      
+      if (jn_val1 < min(mod1) | jn_val1 > max(mod1)) {
+        num_jn = num_jn - 1
+      }
+      
+      if (jn_val2 < min(mod1) | jn_val2 > max(mod1)) {
+        num_jn = num_jn -1
+      }
+      
+      #determine, whether the area between the two JN intervals is significant or not (important for plot)
+      center_significant = ifelse(jn_val1 < jn_val2, TRUE, FALSE)
+      
+      # save everything to return vectors
+      jn_values[1,1] = min(c(jn_val1, jn_val2))
+      jn_values[2,1] = max(c(jn_val1, jn_val2))
+      jn_values[1,2] = max(c(perc_jn_val1, perc_jn_val2))
+      jn_values[2,2] = min(c(perc_jn_val1, perc_jn_val2))
+      
+    } 
+    
+    if ((p2^2 - 4*p3*p1) < 0) {
+      num_jn = 0
+      jn_values = NA
+      center_significant = NA
+    }
+   
+
+    # calculate conditional effects for JN procedure
+    
+    mod1_range = max(mod1) - min(mod1) # define ranger of moderator values
+    jn_val = seq(min(mod1), max(mod1), by = mod1_range / 20) # ... and create 20 values spanning from lowest to highest moderator value
+    
+    jn_val_list = do.call(expand.grid, list(jn_val)) 
+    jn_val_list = cbind(jn_val_list, "Effect" = NA, "SE" = NA, "t-value" = NA, "p-value" = NA, "2.5 %" = NA, "97.5 %" = NA)
+    
+    for(i in 1:nrow(jn_val_list)) {
+      jn_val1 = jn_val_list[i,1]
+      
+      ic_b = as.numeric(erg$coefficients[1])   # get unstandardized coefficient intercept
+      m1_b = as.numeric(erg$coefficients[2])   # get unstandardized coefficient moderators
+      
+      g = ic_b + (jn_val1 * m1_b)   
+      
+      ic_var = vcov(erg)[1,1]              # get variances
+      m1_var = vcov(erg)[2,2]              
+      
+      ic_m1_covar = vcov(erg)[1,2]         # get covariances
+      
+      g_se = sqrt(ic_var + jn_val1^2 * m1_var + 2*jn_val1*ic_m1_covar)  # calculate standard error of gradient
+      
+      t = g / g_se                         #calculate t-value of slopes
+      
+      # look up p value from that t value and the degrees of freedom (n minus 2, for one moderator)
+      
+      p = 2*pt(q=abs(t), df=nrow(df) - length(erg$coefficients), lower.tail=FALSE)    
+      
+      # calculate 95% confidence intervals of the conditional effect
+      
+      margin <- qt(p = 0.05 / 2, df = nrow(df) - length(erg$coefficients), lower.tail=F) * g_se
+      
+      ci_lower = g - margin
+      ci_upper = g + margin
+      
+      # name the moderator variables first
+      colnames(jn_val_list)[1] = "mod1"
+      if(num_mods > 1) colnames(jn_val_list)[2] = "mod2"
+      if(num_mods > 2) colnames(jn_val_list)[3] = "mod3"
+      
+      jn_val_list[i,"Effect"] = g
+      jn_val_list[i,"SE"] = g_se
+      jn_val_list[i,"t-value"] = t
+      jn_val_list[i,"p-value"] = p
+      jn_val_list[i,"2.5 %"] = ci_lower
+      jn_val_list[i,"97.5 %"] = ci_upper
+    }
+    
+  }
+  if(jn == FALSE) {
+    num_jn = NA
+    jn_values = NA
+    jn_val_list = NA
+    center_significant = NA
+  }
+  
   # t-test difference Y1 and Y2
 
   diff_ttest = t.test(y1, y2, paired = T)
@@ -508,7 +607,7 @@ mod2rm <- function (data, Y1, Y2, MOD1, MOD2 = NULL, MOD3 = NULL, MOD1val = NULL
   # save everything in new object
   
   names = c(dataframe = paste(deparse(substitute(data))), y1 = paste(deparse(substitute(Y1))), y2 = paste(deparse(substitute(Y2))), mod1 = paste(deparse(substitute(MOD1))), mod2 = paste(deparse(substitute(MOD2))), mod3 = paste(deparse(substitute(MOD3))))
-  numbers = c(num_mods = num_mods, num_binary_mods = num_bin, sample_size = nrow(df), method = method, standardize = standardize)
+  numbers = c(num_mods = num_mods, num_binary_mods = num_bin, sample_size = nrow(df), method = method, standardize = standardize, jn = jn)
   
   results = list(info = numbers, 
                  var_names = names, 
@@ -516,7 +615,9 @@ mod2rm <- function (data, Y1, Y2, MOD1, MOD2 = NULL, MOD3 = NULL, MOD1val = NULL
                  res_simple_y1 = erg2a, 
                  res_simple_y2 = erg2b, 
                  res_cond_eff = val_list, 
-                 res_y1y2_diff = diff_ttest
+                 res_y1y2_diff = diff_ttest,
+                 res_jn_area = list(num_jn = num_jn, jn_values = jn_values, center_significant = center_significant),
+                 res_jn_cond_eff = jn_val_list
     )
                  
   class(results) <- c("mod2rm") # set class of return object
@@ -524,3 +625,4 @@ mod2rm <- function (data, Y1, Y2, MOD1, MOD2 = NULL, MOD3 = NULL, MOD1val = NULL
   return(results)
   
 }
+

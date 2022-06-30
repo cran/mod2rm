@@ -9,19 +9,43 @@
 \arguments{
 \item{object}{An object of class "mod2rm"}
 
-\item{...}{Additional parameters}
+\item{...}{Additional parameters. "plotjn = TRUE" produces a ggplot for the Johnson-Neyman procedure, "plotstyle" can be set to "simple" or "points" (including data points in the plot)}
 }
 \value{
-Prints summary of the object, then returns NULL
+Prints summary of the object, then returns NULL or (when requested) a ggplot2 object for the Johnson-Neyman plot
 }
 \description{
-Prints a summary of a list object of class "mod2rm"
+Prints a summary of a list object of class "mod2rm", and (if requested) plot the results of the Johnson-Neyman procedure.
+}
+\details{
+This function produces a summary for the results of an object of the type mod2rm, and can further be used to plot a graph showing the results of the JN procedure, if it is included in the mod2rm object.
+#' Results include number and name(s) of moderator(s), sample size, results of a paired t-test between both dependent variables, the results of the moderation analysis, conditional effects of the moderator on each of the dependent variables, conditional effects at values of the moderator, and the results of the Johnson-Neyman procedure (including critical values, proportion of the sample above/below these values, and conditional effects around the significance regions.
 }
 \examples{
-df = data.frame(out1 = c(2,4,5,6,6), out2 = c(7,4,5,1,1), w1 = c(9,4,4,2,3), w2 = c(7,4,1,1,2))
-res = mod2rm(df, out1, out2, w1)
-res = mod2rm(df, out1, out2, w1, MOD1val = c(2,5))
-res = mod2rm(df, out1, out2, w1, w2, method = 2, standardize = TRUE)
-summary.mod2rm(res)
-summary.mod2rm(res)
+
+# Generate a dataset with a Johnson-Neyman (non-)significance region within the response range:
+
+repeat{
+  df = data.frame(out1 = runif(n = 100, min = 1, max = 9), 
+                  out2 = runif(n = 100, min = 1, max = 9), 
+                  w1 = runif(n = 100, min = 1, max = 9),  
+                  w2 = runif(n = 100, min = 1, max = 9),
+                  w3 = runif(n = 100, min = 1, max = 9))
+  res = mod2rm(df, out1, out2, w1, jn = TRUE)
+  if(res$res_jn_area["num_jn"] == 2 & res$res_jn_area["center_significant"] == FALSE)
+    break
+}
+
+# Show summary including plot
+summary.mod2rm(res, plotjn = TRUE, plotstyle = "simple")
+
+# Multiple regression (3 moderators, additive)
+res1 = mod2rm(df, out1, out2, w1, w2, w3, method = 1)
+summary.mod2rm(res1)
+
+# Multiple regression (2 moderators, multiplicative, manually defined conditional effects)
+res2 = mod2rm(df, out1, out2, w1, w2, MOD1val = c(2,3,4), MOD2val = c(4,5), method = 2)
+summary.mod2rm(res2)
+
+
 }

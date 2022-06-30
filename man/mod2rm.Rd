@@ -15,7 +15,8 @@ mod2rm(
   MOD2val = NULL,
   MOD3val = NULL,
   method = 1,
-  standardize = FALSE
+  standardize = FALSE,
+  jn = FALSE
 )
 }
 \arguments{
@@ -31,36 +32,62 @@ mod2rm(
 
 \item{MOD3}{Name of moderator3 variable (optional)}
 
-\item{MOD1val}{A vector containing two values of moderator1 at which to test for conditional effects (even when variables have been standardized!)(optional)}
+\item{MOD1val}{A vector containing values of moderator1 at which to test for conditional effects (even when variables have been standardized!)(optional)}
 
-\item{MOD2val}{A vector containing two values of moderator2 at which to test for conditional effects (even when variables have been standardized!)(optional)}
+\item{MOD2val}{A vector containing values of moderator2 at which to test for conditional effects (even when variables have been standardized!)(optional)}
 
-\item{MOD3val}{A vector containing two values of moderator3 at which to test for conditional effects (even when variables have been standardized!)(optional)}
+\item{MOD3val}{A vector containing values of moderator3 at which to test for conditional effects (even when variables have been standardized!)(optional)}
 
 \item{method}{Method for dealing with two or more moderators (1 = additive, 2 = multiplicative) (default: additive)}
 
-\item{standardize}{boolean variable indicating whether all variables should be standardized prior to the analyses (default: FALSE)}
+\item{standardize}{boolean variable indicating whether all predictor variables (moderators) should be standardized prior to the analyses (default: FALSE)}
+
+\item{jn}{boolean variable indicating whether the Johnson-Neyman procedure should be calculated (only available for single moderator models)}
 }
 \value{
 \item{total}{A list of class "mod2rm" containing:}
-  \item{info}{A named number vector containing values for the number of moderators in the model (num_mods), the number of binary moderators (num_binary_mods), the sample size (sample_size), and the method of moderation (method; 1 = additive, 2 = multiplicative)}
+  \item{info}{A named number vector containing values for the number of moderators in the model (num_mods), the number of binary moderators (num_binary_mods), the sample size (sample_size), the method of moderation (method; 1 = additive, 2 = multiplicative), and whether the Johnson-Neyman procedure was run (jn)}
   \item{var_names}{A named character vector containing the name of the original dataframe (dataframe), the two outcome variables (y1,y2), and up to three moderators (mod1,mod2,mod3)}
   \item{res_mod}{A list including the results of a simple regression, regressing the difference between y1 and y2 on the moderator}
   \item{res_simple_y1}{A list including the results of a simple regression, regressing the y1 on the moderator}
   \item{res_simple_y2}{A list including the results of a simple regression, regressing the y2 on the moderator}
   \item{res_cond_eff}{A list including the results of an analysis of conditional effects at different levels of the moderator(s)}
   \item{res_y1y2_diff}{A list including the results of a repeated measures t-test for y1 and y2}
+  \item{res_jn_area}{A list containing information on the Johnson-Neyman procedure, incluing the number of significance points identified within the data range (num_jn), the moderator values of these points, as well as the proportion of the sample scoring higher than these values (jn_values), and information on whether the JN region is significant or non-significent (center_significant; used for plotting.)}
+  \item{res_jn_cond_eff}{A list containing additional conditonal effects at levels of the moderator around the JN region. Values span the entir data range in 20 steps.}
 }
 \description{
 Multiple moderation analysis for two-instance repeated measures designs, including analyses of simple slopes and conditional effects at values of the moderator(s).\cr\cr
 Currently supports both single- and multi-moderator models, with up to three simultaneous moderators (continuous and/or binary). Multi-moderator models support both additive (method = 1) and multiplicative (method = 2) moderation.\cr\cr
-Moderator values at which to test for conditional effects are determined automatically (at -1, 0, and +1 SD of the mean if the moderator is countinuous, and at both values of the moderator if it is binary), but two test values can also be set manually for each moderator.\cr\cr
+Also supports the Johnson-Neyman procedure for determining regions of significance in single moderator models (jn = T). Plots of the JN region can be obtained from the summary function (plotjn = T).\cr\cr
+Moderator values at which to test for conditional effects are determined automatically (at -1, 0, and +1 SD of the mean if the moderator is countinuous, and at both values of the moderator if it is binary), but any number of test values can also be set manually for each moderator.\cr\cr
 Method and output based on: Montoya, A. K. (2018). Moderation analysis in two-instance repeated measures designs: Probing methods and multiple moderator models. \emph{Behavior Research Methods, 51(1)}, 61-82.\cr\cr
 }
 \examples{
-df = data.frame(out1 = c(2,4,5,6,6), out2 = c(7,4,5,1,1), w1 = c(9,4,4,2,3), w2 = c(7,4,1,1,2))
-res = mod2rm(df, out1, out2, w1)
-res = mod2rm(df, out1, out2, w1, MOD1val = c(2,5))
-res = mod2rm(df, out1, out2, w1, w2, method = 2, standardize = TRUE)
-summary.mod2rm(res)
+
+# Generate a dataset with a Johnson-Neyman (non-)significance region within the response range:
+
+repeat{
+  df = data.frame(out1 = runif(n = 100, min = 1, max = 9), 
+                  out2 = runif(n = 100, min = 1, max = 9), 
+                  w1 = runif(n = 100, min = 1, max = 9),  
+                  w2 = runif(n = 100, min = 1, max = 9),
+                  w3 = runif(n = 100, min = 1, max = 9))
+  res = mod2rm(df, out1, out2, w1, jn = TRUE)
+  if(res$res_jn_area["num_jn"] == 2 & res$res_jn_area["center_significant"] == FALSE)
+    break
+}
+
+# Show summary including plot
+summary.mod2rm(res, plotjn = TRUE, plotstyle = "simple")
+
+# Multiple regression (3 moderators, additive)
+res1 = mod2rm(df, out1, out2, w1, w2, w3, method = 1)
+summary.mod2rm(res1)
+
+# Multiple regression (2 moderators, multiplicative, manually defined conditional effects)
+res2 = mod2rm(df, out1, out2, w1, w2, MOD1val = c(2,3,4), MOD2val = c(4,5), method = 2)
+summary.mod2rm(res2)
+
+
 }

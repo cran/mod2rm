@@ -1,0 +1,9 @@
+# version 0.2.1
+
+CHANGES
+- no default standardization of dependent variables
+- Johnson-Neyman procedure for single moderator
+- simplified num_mods calculation
+- unlimited number of conditional effects test values can be specified
+- simplified automatic setting of conditional effect test values
+- summary can now plot JN graph
